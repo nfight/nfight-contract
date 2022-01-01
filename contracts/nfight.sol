@@ -54,22 +54,32 @@ contract Nfight {
         fightersPerFightDay.push(msg.sender);
     }
 
-    function random(uint32 to) private view returns(uint32) {
+    function random(uint to) private view returns(uint) {
         require(block.number >= 1);
         uint h = uint(blockhash(block.number - 1));
-        return uint32(h % to);
+        return (h % to);
     }
 
     function matchFightersAndExecuteDuels() external onlyArbiter {
-        uint32 i = 0;
-        for (; i < fightersPerFightDay.length; i++) {
-            if ((i != 0) && (i % 2 != 0)) {
-                executeDuel(fightersPerFightDay[i - 1], fightersPerFightDay[i]);
-            }
+        if (fightersPerFightDay.length < 2) {
+            return;
+        }
+
+        while (fightersPerFightDay.length > 1) {
+            uint fighter1Idx = random(fightersPerFightDay.length);
+            address fighter1 = fightersPerFightDay[fighter1Idx];
+            fightersPerFightDay[fightersPerFightDay.length - 1] = fighter1;
+            fightersPerFightDay.pop();
+
+            uint fighter2Idx = random(fightersPerFightDay.length);
+            address fighter2 = fightersPerFightDay[fighter2Idx];
+            fightersPerFightDay[fightersPerFightDay.length - 1] = fighter2;
+            fightersPerFightDay.pop();
+
+            executeDuel(fighter1, fighter2);
         }
         // TODO: handle leftover fighters
-        require(fightersPerFightDay.length == i);
-        delete fightersPerFightDay;
+        require(fightersPerFightDay.length == 0);
     }
 
     function toDamage(Move m) private pure returns(uint8) {
