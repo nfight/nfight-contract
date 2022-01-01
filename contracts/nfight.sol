@@ -84,8 +84,7 @@ contract Nfight {
             if (moves1[i] == moves2[i]) {
                 // If players have done the same move, don't do anything.
                 continue;
-            }
-            else if (moves1[i] == Move.BLOCK && moves2[i] != Move.BLOCK) {
+            } else if (moves1[i] == Move.BLOCK && moves2[i] != Move.BLOCK) {
                 // fighter1 has blocked.
                 receivedDamage2 += BLOCKED_RECEIVED_DAMAGE;
                 receivedDamage1 += BLOCKER_RECEIVED_DAMAGE;
