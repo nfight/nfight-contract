@@ -29,7 +29,7 @@ contract Nfight {
 
     mapping(address => MovesStorage) public moves;
     mapping(address => Fighter) public fighters;
-    address public arbiter;
+    address public immutable arbiter;
     address[] public fightersPerFightDay;
 
     modifier onlyArbiter() {
@@ -54,6 +54,10 @@ contract Nfight {
         fightersPerFightDay.push(msg.sender);
     }
 
+    function countOfWaitingFighters() external view returns (uint) {
+        return fightersPerFightDay.length;
+    }
+
     function random(uint to) private view returns(uint) {
         require(block.number >= 1);
         uint h = uint(blockhash(block.number - 1));
@@ -65,6 +69,7 @@ contract Nfight {
             return;
         }
 
+        // There can be up to 1 fighter who will have to wait for a subsequent fight day.
         while (fightersPerFightDay.length > 1) {
             uint fighter1Idx = random(fightersPerFightDay.length);
             address fighter1 = fightersPerFightDay[fighter1Idx];
@@ -78,8 +83,6 @@ contract Nfight {
 
             executeDuel(fighter1, fighter2);
         }
-        // TODO: handle leftover fighters
-        require(fightersPerFightDay.length == 0);
     }
 
     function toDamage(Move m) private pure returns(uint8) {
