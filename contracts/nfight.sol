@@ -4,7 +4,7 @@ pragma solidity >=0.8.0 <0.9.0;
 
 contract Nfight {
     uint8 public constant MOVES_COUNT = 5;
-    uint32 public constant MAX_DUELS_PER_FIGHT_DAY = 100;
+    uint32 public constant MAX_FIGHTERS_PER_FIGHT_DAY = 100;
     uint8 public constant UP_DAMAGE = 4;
     uint8 public constant CENTER_DAMAGE = 3;
     uint8 public constant DOWN_DAMAGE = 2;
@@ -32,6 +32,11 @@ contract Nfight {
     address public arbiter;
     address[] public fightersPerFightDay;
 
+    modifier onlyArbiter() {
+        require(msg.sender == arbiter);
+        _;
+    }
+
     constructor() {
         arbiter = msg.sender;
     }
@@ -43,14 +48,19 @@ contract Nfight {
     function preMove(Move[MOVES_COUNT] calldata m) external {
         require(fighters[msg.sender].alive);
         require(!moves[msg.sender].set);
-        require(fightersPerFightDay.length < MAX_DUELS_PER_FIGHT_DAY);
+        require(fightersPerFightDay.length < MAX_FIGHTERS_PER_FIGHT_DAY);
         moves[msg.sender].moves = m;
         moves[msg.sender].set = true;
         fightersPerFightDay.push(msg.sender);
     }
 
-    function matchAndExecuteDuels() external {
-        require(arbiter == msg.sender);
+    function random(uint32 to) private view returns(uint32) {
+        require(block.number >= 1);
+        uint h = uint(blockhash(block.number - 1));
+        return uint32(h % to);
+    }
+
+    function matchFightersAndExecuteDuels() external onlyArbiter {
         uint32 i = 0;
         for (; i < fightersPerFightDay.length; i++) {
             if ((i != 0) && (i % 2 != 0)) {
@@ -74,7 +84,7 @@ contract Nfight {
         return 0;
     }
 
-    function executeDuel(address fighter1, address fighter2) private {
+    function executeDuel(address fighter1, address fighter2) private onlyArbiter {
         Move[MOVES_COUNT] storage moves1 = moves[fighter1].moves;
         Move[MOVES_COUNT] storage moves2 = moves[fighter2].moves;
         uint16 receivedDamage1 = 0;
