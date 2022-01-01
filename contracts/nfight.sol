@@ -3,21 +3,23 @@
 pragma solidity >=0.8.0 <0.9.0;
 
 contract Nfight {
-    uint8 public constant HITS_COUNT = 5;
-    uint8 public constant MAX_DUELS_PER_FIGHT_DAY = 100;
+    uint8 public constant MOVES_COUNT = 5;
+    uint32 public constant MAX_DUELS_PER_FIGHT_DAY = 100;
+    uint8 public constant UP_DAMAGE = 4;
+    uint8 public constant CENTER_DAMAGE = 3;
+    uint8 public constant DOWN_DAMAGE = 2;
+    uint8 public constant BLOCKER_RECEIVED_DAMAGE = 1;
+    uint8 public constant BLOCKED_RECEIVED_DAMAGE = 3;
 
-    enum Hit {
+    enum Move {
         UP,
         CENTER,
-        DOWN
-    }
-
-    struct Moves {
-        Hit[HITS_COUNT] hits;
+        DOWN,
+        BLOCK
     }
   
     struct MovesStorage {
-        Moves moves;
+        Move[MOVES_COUNT] moves;
         bool set;
     }
 
@@ -28,7 +30,7 @@ contract Nfight {
     mapping(address => MovesStorage) public moves;
     mapping(address => Fighter) public fighters;
     address public arbiter;
-    address[] public fighters_in_fight_day;
+    address[] public fightersPerFightDay;
 
     constructor() {
         arbiter = msg.sender;
@@ -38,24 +40,73 @@ contract Nfight {
         fighters[msg.sender].alive = true;
     }
 
-    function preMove(Moves calldata m) external {
+    function preMove(Move[MOVES_COUNT] calldata m) external {
         require(fighters[msg.sender].alive);
         require(!moves[msg.sender].set);
-        require(fighters_in_fight_day.length < MAX_DUELS_PER_FIGHT_DAY);
+        require(fightersPerFightDay.length < MAX_DUELS_PER_FIGHT_DAY);
         moves[msg.sender].moves = m;
         moves[msg.sender].set = true;
-        fighters_in_fight_day.push(msg.sender);
+        fightersPerFightDay.push(msg.sender);
     }
 
     function matchAndExecuteDuels() external {
         require(arbiter == msg.sender);
-        for (uint i = 0; i < fighters_in_fight_day.length; i++) {
-
+        uint32 i = 0;
+        for (; i < fightersPerFightDay.length; i++) {
+            if ((i != 0) && (i % 2 != 0)) {
+                executeDuel(fightersPerFightDay[i - 1], fightersPerFightDay[i]);
+            }
         }
-        delete fighters_in_fight_day;
+        // TODO: handle leftover fighters
+        require(fightersPerFightDay.length == i);
+        delete fightersPerFightDay;
+    }
+
+    function toDamage(Move m) private pure returns(uint8) {
+        require(m != Move.BLOCK);
+        if (m == Move.UP) {
+            return UP_DAMAGE;
+        } else if (m == Move.CENTER) {
+            return CENTER_DAMAGE;
+        } else if (m == Move.DOWN) {
+            return DOWN_DAMAGE;
+        }
+        return 0;
     }
 
     function executeDuel(address fighter1, address fighter2) private {
+        Move[MOVES_COUNT] storage moves1 = moves[fighter1].moves;
+        Move[MOVES_COUNT] storage moves2 = moves[fighter2].moves;
+        uint16 receivedDamage1 = 0;
+        uint16 receivedDamage2 = 0;
 
+        for (uint8 i = 0; i < MOVES_COUNT; i++) {
+            if (moves1[i] == moves2[i]) {
+                // If players have done the same move, don't do anything.
+                continue;
+            }
+            else if (moves1[i] == Move.BLOCK && moves2[i] != Move.BLOCK) {
+                // fighter1 has blocked.
+                receivedDamage2 += BLOCKED_RECEIVED_DAMAGE;
+                receivedDamage1 += BLOCKER_RECEIVED_DAMAGE;
+            } else if (moves2[i] == Move.BLOCK && moves1[i] != Move.BLOCK) {
+                // fighter2 has blocked.
+                receivedDamage2 += BLOCKER_RECEIVED_DAMAGE;
+                receivedDamage1 += BLOCKED_RECEIVED_DAMAGE;
+            } else {
+                // No block - both players do damage.
+                receivedDamage2 = toDamage(moves1[i]);
+                receivedDamage1 = toDamage(moves2[i]);
+            }
+        }
+
+        if (receivedDamage1 > receivedDamage2) {
+            fighters[fighter1].alive = false;
+        } else if (receivedDamage2 > receivedDamage1) {
+            fighters[fighter2].alive = false;
+        } else {
+            fighters[fighter1].alive = false;
+            fighters[fighter2].alive = false;
+        }
     }
 }
