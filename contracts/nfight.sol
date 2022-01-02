@@ -41,27 +41,39 @@ contract Nfight {
         arbiter = msg.sender;
     }
 
+    function enlist(address a) internal {
+        fighters[a].alive = true;
+    }
+
     function enlist() external {
-        fighters[msg.sender].alive = true;
+        enlist(msg.sender);
+    }
+
+    function preMove(address a, Move[MOVES_COUNT] memory m) internal {
+        require(fighters[a].alive);
+        require(!moves[a].set);
+        require(fightersPerFightDay.length < MAX_FIGHTERS_PER_FIGHT_DAY);
+        moves[a].moves = m;
+        moves[a].set = true;
+        fightersPerFightDay.push(a);
     }
 
     function preMove(Move[MOVES_COUNT] calldata m) external {
-        require(fighters[msg.sender].alive);
-        require(!moves[msg.sender].set);
-        require(fightersPerFightDay.length < MAX_FIGHTERS_PER_FIGHT_DAY);
-        moves[msg.sender].moves = m;
-        moves[msg.sender].set = true;
-        fightersPerFightDay.push(msg.sender);
+        preMove(msg.sender, m);
     }
 
     function countOfWaitingFighters() external view returns (uint) {
         return fightersPerFightDay.length;
     }
 
+    function random(uint seed, uint to) public pure returns (uint) {
+        uint h = uint(keccak256(abi.encodePacked(seed)));
+        return (h % to);
+    }
+
     function random(uint to) private view returns(uint) {
         require(block.number >= 1);
-        uint h = uint(blockhash(block.number - 1));
-        return (h % to);
+        return random(block.number, to);
     }
 
     function matchFightersAndExecuteDuels() external onlyArbiter {
